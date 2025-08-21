@@ -23,7 +23,7 @@ var NONE        = 4,
 
 Pacman.FPS = 30;
 
-Pacman.Ghost = function (game, map, colour) {
+Pacman.Ghost = function (game, map, colour, id) {
 
     var position  = null,
         direction = null,
@@ -153,6 +153,21 @@ Pacman.Ghost = function (game, map, colour) {
             eaten = null;
         }
         
+        if (window.PACMAN && typeof PACMAN.getSprites === "function") {
+            var sprites = PACMAN.getSprites();
+            if (sprites) {
+                var gImg = null;
+                if (sprites.ghosts && sprites.ghosts[id]) {
+                    gImg = sprites.ghosts[id];
+                } else if (sprites.ghost) {
+                    gImg = sprites.ghost;
+                }
+                if (gImg) {
+                    try { ctx.drawImage(gImg, left, top, s, s); return; } catch (e) {}
+                }
+            }
+        }
+
         var tl = left + s;
         var base = top + s - 3;
         var inc = s / 10;
@@ -496,6 +511,18 @@ Pacman.User = function (game, map) {
         var s     = map.blockSize, 
             angle = calcAngle(direction, position);
 
+        if (window.PACMAN && typeof PACMAN.getSprites === "function") {
+            var sprites = PACMAN.getSprites();
+            if (sprites && sprites.pacman) {
+                var left = (position.x/10) * s;
+                var top  = (position.y/10) * s;
+                try {
+                    ctx.drawImage(sprites.pacman, left, top, s, s);
+                    return;
+                } catch (e) {}
+            }
+        }
+
         ctx.fillStyle = "#FFFF00";
 
         ctx.beginPath();        
@@ -787,7 +814,12 @@ var PACMAN = (function () {
         timer        = null,
         map          = null,
         user         = null,
-        stored       = null;
+        stored       = null,
+        wrapperEl    = null,
+        canvasEl     = null,
+        spritePacman = null,
+        spriteGhost  = null,
+        spriteGhosts = [];
 
     function getTick() { 
         return tick;
@@ -1014,6 +1046,15 @@ var PACMAN = (function () {
     
     function completedLevel() {
         setState(WAITING);
+        if (level === 1) {
+            try { audio.pause(); } catch (e) {}
+            if (timer) { window.clearInterval(timer); timer = null; }
+            try {
+                var ov = document.getElementById('winOverlay');
+                if (ov) { ov.style.display = 'flex'; }
+            } catch (e) {}
+            return;
+        }
         level += 1;
         map.reset();
         user.newLevel();
@@ -1030,13 +1071,27 @@ var PACMAN = (function () {
     function init(wrapper, root) {
         
         var i, len, ghost,
-            blockSize = wrapper.offsetWidth / 19,
+            blockSize,
             canvas    = document.createElement("canvas");
-        
+
+        wrapperEl = wrapper;
+
+        function computeBlockSize() {
+            var w = (wrapperEl.clientWidth || wrapperEl.offsetWidth || 342);
+            var h = (wrapperEl.clientHeight || wrapperEl.offsetHeight || 450);
+            var usableH = Math.max(100, h - 30);
+            var bs = Math.floor(Math.min(w / 19, usableH / 22));
+            return Math.max(12, bs);
+        }
+
+        blockSize = computeBlockSize();
+
         canvas.setAttribute("width", (blockSize * 19) + "px");
         canvas.setAttribute("height", (blockSize * 22) + 30 + "px");
 
         wrapper.appendChild(canvas);
+
+        canvasEl = canvas;
 
         ctx  = canvas.getContext('2d');
 
@@ -1048,7 +1103,7 @@ var PACMAN = (function () {
         }, map);
 
         for (i = 0, len = ghostSpecs.length; i < len; i += 1) {
-            ghost = new Pacman.Ghost({"getTick":getTick}, map, ghostSpecs[i]);
+            ghost = new Pacman.Ghost({"getTick":getTick}, map, ghostSpecs[i], i);
             ghosts.push(ghost);
         }
         
@@ -1090,7 +1145,23 @@ var PACMAN = (function () {
     };
     
     return {
-        "init" : init
+        "init" : init,
+        "setSprites": function(pImg, gImg, gImgsArr){ 
+            spritePacman = pImg || null; 
+            spriteGhost = gImg || null; 
+            spriteGhosts = Array.isArray(gImgsArr) ? gImgsArr : spriteGhosts;
+        },
+        "getSprites": function(){ return { pacman: spritePacman, ghost: spriteGhost, ghosts: spriteGhosts }; },
+        "restart": function(){
+            try { var ov = document.getElementById('winOverlay'); if (ov) ov.style.display = 'none'; } catch (e) {}
+            level = 1;
+            setState(WAITING);
+            user.reset();
+            map.reset();
+            map.draw(ctx);
+            startLevel();
+            if (!timer) { timer = window.setInterval(mainLoop, 1000 / Pacman.FPS); }
+        }
     };
     
 }());

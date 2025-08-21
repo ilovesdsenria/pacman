@@ -11,19 +11,58 @@
 	    font-weight: normal;
 	    font-style: normal;
       }
+      html, body {
+        height:100%;
+        width:100%;
+        margin:0;
+        padding:0;
+        background:#000;
+        font-family:sans-serif;
+      }
       #pacman {
-        height:450px;
-        width:342px;
-        margin:20px auto;
+        height:100vh;
+        width:100vw;
+        margin:0;
+        position:relative;
+        overflow:hidden;
       }
       #shim { 
         font-family: BDCartoonShoutRegular; 
         position:absolute;
         visibility:hidden
       }
-      h1 { font-family: BDCartoonShoutRegular; text-align:center; }
-      body { width:342px; margin:0px auto; font-family:sans-serif; }
-      a { text-decoration:none; }
+      #controls { display:none; }
+      #winOverlay {
+        position:fixed;
+        inset:0;
+        display:none;
+        align-items:center;
+        justify-content:center;
+        background:rgba(0,0,0,0.8);
+        z-index:20;
+      }
+      #winOverlay .content {
+        background:#111;
+        color:#fff;
+        padding:20px 26px;
+        border-radius:10px;
+        text-align:center;
+        min-width:260px;
+      }
+      #winOverlay .content h2 { margin:0 0 10px 0; font-family: BDCartoonShoutRegular; }
+      #winOverlay .content a {
+        display:inline-block;
+        margin:10px 0;
+        color:#0bf;
+      }
+      #winOverlay .content button {
+        background:#0a0;
+        color:#fff;
+        border:0;
+        border-radius:6px;
+        padding:8px 12px;
+        cursor:pointer;
+      }
     </style>
 
 </head>
@@ -32,10 +71,18 @@
   
   <div id="shim">shim for font face</div>
 
-  <h1>HTML5 Pacman</h1>
+  <div id="controls"></div>
 
-  <a href="http://arandomurl.com/">Writeup</a> |
-  Code on <a href="http://arandomurl.com/">Github</a>
+  <div id="winOverlay">
+    <div class="content">
+      <h2>Победа!</h2>
+      <p>Вы прошли первый уровень.</p>
+      <a id="winAnchor" href="https://mappedlove.daniilgladysev4.workers.dev/login" target="_blank" rel="noopener noreferrer">Перейти на сайт</a>
+      <div>
+        <button id="restartGame">Играть снова</button>
+      </div>
+    </div>
+  </div>
 
   <div id="pacman"></div>
   <script src="pacman.js"></script>
@@ -48,10 +95,72 @@
     if (Modernizr.canvas && Modernizr.localstorage && 
         Modernizr.audio && (Modernizr.audio.ogg || Modernizr.audio.mp3)) {
       window.setTimeout(function () { PACMAN.init(el, "./"); }, 0);
-    } else { 
+    } else {
       el.innerHTML = "Sorry, needs a decent browser<br /><small>" + 
         "(firefox 3.6+, Chrome 4+, Opera 10+ and Safari 4+)</small>";
     }
+  </script>
+
+  <script>
+    // Конфигурация спрайтов и ссылки победы (загрузите файлы на сервер и укажите пути)
+    window.PACMAN_SPRITES = {
+      pacman: 'photos/pacman.png',
+      ghostDefault: 'photos/ghost.png',
+      ghosts: [
+        'photos/ghost1.png',
+        'photos/ghost2.png',
+        'photos/ghost3.png',
+        'photos/ghost4.png'
+      ]
+    };
+    window.PACMAN_WIN_LINK = 'https://mappedlove.daniilgladysev4.workers.dev/login';
+
+    (function(){
+      // применить ссылку победы
+      var a = document.getElementById('winAnchor');
+      if (a && window.PACMAN_WIN_LINK) { a.href = window.PACMAN_WIN_LINK; }
+
+      // предзагрузка картинок и установка в игру
+      function loadImg(src){
+        return new Promise(function(resolve){
+          if (!src) return resolve(null);
+          var img = new Image();
+          img.onload = function(){ resolve(img); };
+          img.onerror = function(){ resolve(null); };
+          img.src = src;
+        });
+      }
+
+      function preloadSprites(cfg){
+        var ghostPromises = (cfg.ghosts || []).map(loadImg);
+        return Promise.all([
+          loadImg(cfg.pacman),
+          loadImg(cfg.ghostDefault)
+        ].concat(ghostPromises));
+      }
+
+      function applySprites(results){
+        if (!window.PACMAN || !PACMAN.setSprites) return;
+        var pac = results[0] || null;
+        var ghostDefault = results[1] || null;
+        var ghosts = results.slice(2);
+        PACMAN.setSprites(pac, ghostDefault, ghosts);
+      }
+
+      var cfg = window.PACMAN_SPRITES || {};
+      preloadSprites(cfg).then(applySprites);
+
+      var restartBtn = document.getElementById('restartGame');
+      if (restartBtn) {
+        restartBtn.addEventListener('click', function(){
+          var ov = document.getElementById('winOverlay');
+          if (ov) ov.style.display = 'none';
+          if (window.PACMAN && PACMAN.restart) {
+            PACMAN.restart();
+          }
+        });
+      }
+    })();
   </script>
 
 </body>
