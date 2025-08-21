@@ -1129,7 +1129,7 @@ var PACMAN = (function () {
         map.draw(ctx);
         dialog("Loading ...");
 
-        var extension = Modernizr.audio.ogg ? 'ogg' : 'mp3';
+        var extension = (Modernizr.audio && Modernizr.audio.ogg) ? 'ogg' : 'mp3';
 
         var audio_files = [
             ["start", root + "audio/opening_song." + extension],
@@ -1140,7 +1140,18 @@ var PACMAN = (function () {
             ["eating2", root + "audio/eating.short." + extension]
         ];
 
+        // On many mobile browsers, audio cannot preload without user gesture.
+        // Default-disable sound on touch devices so the game can start immediately.
+        try {
+            var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            if (isTouch && localStorage["soundDisabled"] !== "true") {
+                localStorage["soundDisabled"] = "true";
+            }
+        } catch (e) {}
+
         load(audio_files, function() { loaded(); });
+        // Fallback: if audio never loads, start anyway shortly.
+        window.setTimeout(function(){ if (!timer) { loaded(); } }, 1500);
 
         try {
             var resizeHandler = function(){
