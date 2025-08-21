@@ -1163,13 +1163,13 @@ var PACMAN = (function () {
     };
         
     function loaded() {
-
-        dialog("Press N to Start");
-        
         document.addEventListener("keydown", keyDown, true);
         document.addEventListener("keypress", keyPress, true); 
-        
         timer = window.setInterval(mainLoop, 1000 / Pacman.FPS);
+        // Auto-start immediately after loading
+        startNewGame();
+        setState(PLAYING);
+        map.draw(ctx);
     };
     
     return {
