@@ -357,6 +357,10 @@ Pacman.User = function (game, map) {
         return true;
 	};
 
+    function setDue(dir) {
+        due = dir;
+    };
+
     function getNewCoord(dir, current) {   
         return {
             "x": current.x + (dir === LEFT && -2 || dir === RIGHT && 2 || 0),
@@ -549,6 +553,7 @@ Pacman.User = function (game, map) {
         "addScore"      : addScore,
         "theScore"      : theScore,
         "keyDown"       : keyDown,
+        "setDue"        : setDue,
         "move"          : move,
         "newLevel"      : newLevel,
         "reset"         : reset,
@@ -1084,7 +1089,21 @@ var PACMAN = (function () {
             return Math.max(12, bs);
         }
 
-        blockSize = computeBlockSize();
+        function setCanvasSize() {
+            var dpr = window.devicePixelRatio || 1;
+            var bs = computeBlockSize();
+            var cssW = bs * 19;
+            var cssH = bs * 22 + 30;
+            canvas.style.width = cssW + 'px';
+            canvas.style.height = cssH + 'px';
+            canvas.width = Math.floor(cssW * dpr);
+            canvas.height = Math.floor(cssH * dpr);
+            var cctx = canvas.getContext('2d');
+            cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            return bs;
+        }
+
+        blockSize = setCanvasSize();
 
         canvas.setAttribute("width", (blockSize * 19) + "px");
         canvas.setAttribute("height", (blockSize * 22) + 30 + "px");
@@ -1122,6 +1141,15 @@ var PACMAN = (function () {
         ];
 
         load(audio_files, function() { loaded(); });
+
+        try {
+            var resizeHandler = function(){
+                var bs = setCanvasSize();
+                map.draw(ctx);
+            };
+            window.addEventListener('resize', resizeHandler);
+            window.addEventListener('orientationchange', resizeHandler);
+        } catch (e) {}
     };
 
     function load(arr, callback) { 
@@ -1161,7 +1189,9 @@ var PACMAN = (function () {
             map.draw(ctx);
             startLevel();
             if (!timer) { timer = window.setInterval(mainLoop, 1000 / Pacman.FPS); }
-        }
+        },
+        // Экспонируем user для сенсорного управления
+        get user(){ return user; }
     };
     
 }());
